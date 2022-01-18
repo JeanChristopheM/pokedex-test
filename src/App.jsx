@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { getData } from "./logic";
 
 const App = () => {
   const [pokemons, setPokemons] = useState([]);
@@ -8,45 +9,27 @@ const App = () => {
 
   const divRef = useRef(null);
 
-  const getEvents = async (src) => {
-    if (isFetching) return;
-    setIsFetching(true);
-    const response = await fetch(src);
-    const data = await response.json();
-    // ! FIRST LOG
-    console.log(
-      "Just fetched. The next url is : " + data.next + " -> " + typeof data.next
-    );
-    if (data.next) {
-      setNextPage(data.next);
-      // ! SECOND LOG
-      console.log("Set state of nextPage to : " + data.next);
-    }
-    // ! THIRD LOG
-    console.log("Current state after setting : " + nextPage);
-    if (data.previous) setPrevPage(data.previous);
-    setIsFetching(false);
-    return data.results;
-  };
-
   const initialLoad = async () => {
-    const data = await getEvents("https://pokeapi.co/api/v2/pokemon");
-    setPokemons(data);
+    setIsFetching(true);
+    const data = await getData("https://pokeapi.co/api/v2/pokemon");
+    setPokemons(data.results);
+    setNextPage(data.next);
+    setPrevPage(data.previous);
   };
 
   const fetchMore = async () => {
-    console.log("Making request with : " + nextPage);
-    setNextPage(nextPage);
-    const data = await getEvents(nextPage);
-    setPokemons((old) => [...old, ...data]);
-    setIsFetching(false);
-  };
-  const onBottomHit = () => {
-    //console.log("hit bottom : " + nextPage);
-    /* if (isFetching) return;
     setIsFetching(true);
-    fetchMore(); */
+    const data = await getData(nextPage);
+    setPokemons((prev) => [...prev, ...data.results]);
+    setNextPage(data.next);
+    setPrevPage(data.previous);
   };
+
+  const onBottomHit = () => {
+    if (isFetching) return;
+    fetchMore();
+  };
+
   const handleScroll = () => {
     if (!divRef.current) {
       return false;
@@ -54,20 +37,22 @@ const App = () => {
     if (divRef.current.getBoundingClientRect().bottom <= window.innerHeight)
       onBottomHit();
   };
+
   useEffect(() => {
     initialLoad();
     window.addEventListener("scroll", handleScroll, {
       passive: true,
     });
-
     return () => {
       window.removeEventListener("scroll", handleScroll);
     };
   }, []);
 
-  const getMoar = () => {
-    fetchMore();
-  };
+  useEffect(() => {
+    console.log("ready");
+    setIsFetching(false);
+  }, [nextPage]);
+
   return (
     <>
       {pokemons.length == 0 ? (
@@ -94,7 +79,21 @@ const App = () => {
               </div>
             );
           })}
-          <button onClick={getMoar}>MOAR</button>
+          <div
+            style={{
+              position: "fixed",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              color: "white",
+              background: "salmon",
+            }}
+            onClick={fetchMore}
+          >
+            Is fetching : {isFetching.toString()}
+            <br />
+            nextPage : {nextPage}
+          </div>
         </div>
       )}
     </>

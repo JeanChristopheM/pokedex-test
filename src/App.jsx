@@ -1,12 +1,22 @@
 import { useEffect, useState, useRef } from "react";
 import { getData } from "./logic";
 
+const useEvent = (event, handler, passive = false) => {
+  useEffect(() => {
+    window.addEventListener(event, handler, passive);
+    return () => {
+      window.removeEventListener(event, handler);
+    };
+  });
+};
+
 const App = () => {
   //! Declaring my state variables
   const [pokemons, setPokemons] = useState([]);
   const [nextPage, setNextPage] = useState(null);
   const [prevPage, setPrevPage] = useState(null);
   const [isFetching, setIsFetching] = useState(false);
+  const [wantMore, setWantMore] = useState(false);
 
   //! Putting a ref on my main div
   const divRef = useRef(null);
@@ -22,15 +32,7 @@ const App = () => {
 
   //! Only executed on app mount (once)
   useEffect(() => {
-    //! INITIAL FETCH
     initialLoad();
-    //! ADDING AN EVENT LISTENER
-    window.addEventListener("scroll", handleScroll, {
-      passive: true,
-    });
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-    };
   }, []);
 
   //! Gets called either on btn Click or on scroll down at bottom of page
@@ -44,24 +46,28 @@ const App = () => {
 
   //! Gets called once the nextPage state variable changes
   useEffect(() => {
-    console.log("ready");
     setIsFetching(false);
   }, [nextPage]);
 
   //! Gets called when we hit the bottom of the page
-  const onBottomHit = () => {
+  /* const onBottomHit = () => {
     if (isFetching) return;
     fetchMore();
-  };
+  }; */
+  useEffect(() => {
+    if (isFetching) return;
+    if (!wantMore) return;
+    fetchMore();
+  }, [wantMore]);
 
   //! Gets called when the user scrolls
   const handleScroll = () => {
-    if (!divRef.current) {
-      return false;
-    }
+    console.log("yoyo " + nextPage);
+    if (!divRef.current) return;
     if (divRef.current.getBoundingClientRect().bottom <= window.innerHeight)
-      onBottomHit();
+      setWantMore(true);
   };
+  useEvent("scroll", handleScroll, true);
 
   //! Return statement
   return (

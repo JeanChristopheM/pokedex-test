@@ -1,120 +1,54 @@
-import { useEffect, useState, useRef } from "react";
-import { getData } from "./logic";
-
-const useEvent = (event, handler, passive = false) => {
-  useEffect(() => {
-    window.addEventListener(event, handler, passive);
-    return () => {
-      window.removeEventListener(event, handler);
-    };
-  });
-};
+import { useState, useRef, useCallback } from "react";
+import usePokemonFetch from "./usePokemonFetch";
+import { pokemonStyle, infoStyle } from "./style";
 
 const App = () => {
-  //! Declaring my state variables
-  const [pokemons, setPokemons] = useState([]);
-  const [nextPage, setNextPage] = useState(null);
-  const [prevPage, setPrevPage] = useState(null);
-  const [isFetching, setIsFetching] = useState(false);
-  const [wantMore, setWantMore] = useState(false);
+  const [src, setSrc] = useState("https://pokeapi.co/api/v2/pokemon");
 
-  //! Putting a ref on my main div
-  const divRef = useRef(null);
+  const { pokemons, loading, error, nextSrc, prevSrc } = usePokemonFetch(src);
 
-  //! Gets called once on app launch by the useEffect below
-  const initialLoad = async () => {
-    setIsFetching(true);
-    const data = await getData("https://pokeapi.co/api/v2/pokemon");
-    setPokemons(data.results);
-    setNextPage(data.next);
-    setPrevPage(data.previous);
-  };
+  const observer = useRef();
+  const lastPokemon = useCallback(
+    (node) => {
+      if (loading) return;
+      if (observer.current) observer.current.disconnect();
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && nextSrc) {
+          setSrc(nextSrc);
+        }
+      });
+      if (node) observer.current.observe(node);
+    },
+    [loading, nextSrc]
+  );
 
-  //! Only executed on app mount (once)
-  useEffect(() => {
-    initialLoad();
-  }, []);
-
-  //! Gets called either on btn Click or on scroll down at bottom of page
-  const fetchMore = async () => {
-    setIsFetching(true);
-    const data = await getData(nextPage);
-    setPokemons((prev) => [...prev, ...data.results]);
-    setNextPage(data.next);
-    setPrevPage(data.previous);
-  };
-
-  //! Gets called once the nextPage state variable changes
-  useEffect(() => {
-    setIsFetching(false);
-  }, [nextPage]);
-
-  //! Gets called when we hit the bottom of the page
-  /* const onBottomHit = () => {
-    if (isFetching) return;
-    fetchMore();
-  }; */
-  useEffect(() => {
-    if (isFetching) return;
-    if (!wantMore) return;
-    fetchMore();
-  }, [wantMore]);
-
-  //! Gets called when the user scrolls
-  const handleScroll = () => {
-    console.log("yoyo " + nextPage);
-    if (!divRef.current) return;
-    if (divRef.current.getBoundingClientRect().bottom <= window.innerHeight)
-      setWantMore(true);
-  };
-  useEvent("scroll", handleScroll, true);
-
-  //! Return statement
   return (
-    <>
-      {pokemons.length == 0 ? (
-        "No data"
-      ) : (
-        <div
-          style={{ border: "1px solid gold" }}
-          className="pokemon"
-          ref={divRef}
-        >
-          {pokemons.map((pokemon) => {
+    <div>
+      <h1>Pokemons : </h1>
+      <div className="pokemon">
+        {pokemons.map((pokemon, index) => {
+          if (pokemons.length === index + 1) {
             return (
-              <div
-                style={{
-                  backgroundColor: "salmon",
-                  padding: ".5rem",
-                  width: "max-content",
-                  margin: "1rem",
-                }}
-                key={pokemon.name}
-                className="pokemonName"
-              >
+              <div ref={lastPokemon} key={pokemon.name} style={pokemonStyle}>
                 {pokemon.name}
               </div>
             );
-          })}
-          {/* // ! Floating div in the middle of the page */}
-          <div
-            style={{
-              position: "fixed",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              color: "white",
-              background: "salmon",
-            }}
-            onClick={fetchMore}
-          >
-            Is fetching : {isFetching.toString()}
-            <br />
-            nextPage : {nextPage}
-          </div>
-        </div>
-      )}
-    </>
+          }
+          return (
+            <div key={pokemon.name} style={pokemonStyle}>
+              {pokemon.name}
+            </div>
+          );
+        })}
+      </div>
+      <div style={infoStyle}>
+        <p>loading : {loading.toString()}</p>
+        <p>nextSrc : {nextSrc}</p>
+        <p>Error : {error.toString()}</p>
+      </div>
+      {loading ? <div>Loading ... </div> : null}
+      {error ? <div>Error</div> : null}
+    </div>
   );
 };
 
